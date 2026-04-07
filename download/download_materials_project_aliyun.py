@@ -6,8 +6,9 @@ Designed to run on an Aliyun ECS server where local disk space is limited.
 Each CHGCAR is written to a temporary file, uploaded to OSS, then deleted locally.
 
 OSS key layout (flat):
-    {oss_prefix}mp-10/CHGCAR
-    {oss_prefix}mp-10/task_id.txt
+    {prefix}mp-10/CHGCAR
+    {prefix}mp-10/task_id.txt
+    (prefix from --oss_prefix, --oss_key, or --oss_folder, e.g. mp_raw/)
 
 Typical usage with a pre-built mpid->task_id map:
 
@@ -33,10 +34,9 @@ import os
 import tempfile
 from multiprocessing import pool
 from pathlib import Path
-from typing import Optional, Set, Tuple
+from typing import Any, Optional, Set, Tuple
 
 import oss2
-from emmet.core.tasks import TaskDoc
 from mp_api.client import MPRester
 from pymatgen.io.vasp import Chgcar
 
@@ -73,8 +73,16 @@ parser.add_argument("--oss_access_key_id", type=str,
 parser.add_argument("--oss_access_key_secret", type=str,
     default=None,
     help="Aliyun access key secret (falls back to env var OSS_ACCESS_KEY_SECRET)")
-parser.add_argument("--oss_prefix", type=str, default="",
-    help="Optional key prefix inside the bucket, e.g. 'mp_raw/' (default: '')")
+parser.add_argument(
+    "--oss_prefix",
+    "--oss_key",
+    "--oss_folder",
+    dest="oss_prefix",
+    type=str,
+    default="",
+    help="Optional object key prefix (folder) inside the bucket, e.g. 'mp_raw/'. "
+         "Use --oss_key or --oss_folder for the same option. (default: '')",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +137,7 @@ def upload_chgcar_to_oss(
 
 def upload_task_id_to_oss(
     bucket: oss2.Bucket,
-    taskdoc: TaskDoc,
+    taskdoc: Any,
     mpid: str,
     prefix: str = "",
 ) -> None:
@@ -145,7 +153,7 @@ def upload_task_id_to_oss(
 
 def _get_charge_density_with_task_docs(
     mp_api_key: str, mpid: str, deserialize: bool = False
-) -> Tuple[Optional[Chgcar], Optional[TaskDoc]]:
+) -> Tuple[Optional[Chgcar], Optional[Any]]:
     with MPRester(mp_api_key, monty_decode=deserialize) as mpr:
         chgcar, taskdoc = mpr.get_charge_density_from_material_id(
             mpid, inc_task_doc=True
@@ -155,7 +163,7 @@ def _get_charge_density_with_task_docs(
 
 def _get_charge_density_by_task_id(
     mp_api_key: str, task_id: str, deserialize: bool = False
-) -> Tuple[Optional[Chgcar], Optional[TaskDoc]]:
+) -> Tuple[Optional[Chgcar], Optional[Any]]:
     with MPRester(mp_api_key, monty_decode=deserialize) as mpr:
         chgcar, taskdoc = mpr.get_charge_density_from_task_id(
             task_id, inc_task_doc=True
@@ -164,10 +172,9 @@ def _get_charge_density_by_task_id(
 
 
 def _get_all_mpids_with_charge_density(mp_api_key: str) -> list:
-    from emmet.core.summary import HasProps
     with MPRester(mp_api_key) as mpr:
         docs = mpr.materials.summary.search(
-            has_props=[HasProps.charge_density], fields=["material_id"]
+            has_props=["charge_density"], fields=["material_id"]
         )
     return [doc.material_id for doc in docs]
 

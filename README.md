@@ -185,7 +185,68 @@ python download/download_materials_project_aliyun.py \
     --workers 4
 ```
 
-OSS credentials can also be supplied via environment variables `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET` instead of CLI flags.
+**More upload examples**
+
+1) **Upload under a parent folder in OSS** (recommended for organization):
+
+```bash
+python download/download_materials_project_aliyun.py \
+    --task_id_file ./data/mpid_to_task_id_map.json \
+    --mp_api_key <MP API key> \
+    --oss_bucket <bucket name> \
+    --oss_endpoint oss-cn-hangzhou.aliyuncs.com \
+    --oss_access_key_id <key id> \
+    --oss_access_key_secret <key secret> \
+    --oss_folder mp_raw/ \
+    --workers 4
+```
+
+You can use any of these equivalent flags to set the parent folder/prefix:
+
+- `--oss_folder mp_raw/`
+- `--oss_key mp_raw/`
+- `--oss_prefix mp_raw/`
+
+2) **Use environment variables for credentials** (no secrets in shell history):
+
+```bash
+export OSS_ACCESS_KEY_ID=<key id>
+export OSS_ACCESS_KEY_SECRET=<key secret>
+
+python download/download_materials_project_aliyun.py \
+    --task_id_file ./data/mpid_to_task_id_map.json \
+    --mp_api_key <MP API key> \
+    --oss_bucket <bucket name> \
+    --oss_endpoint oss-cn-hangzhou.aliyuncs.com \
+    --oss_folder mp_raw/ \
+    --workers 4
+```
+
+3) **Resume from partial progress with a skip list**:
+
+```bash
+python download/download_materials_project_aliyun.py \
+    --task_id_file ./data/mpid_to_task_id_map.json \
+    --mp_api_key <MP API key> \
+    --oss_bucket <bucket name> \
+    --oss_endpoint oss-cn-hangzhou.aliyuncs.com \
+    --oss_folder mp_raw/ \
+    --downloaded_list ./data/downloaded_mpids.txt \
+    --workers 4
+```
+
+4) **Quick smoke test before full run**:
+
+```bash
+python download/download_materials_project_aliyun.py \
+    --task_id_file ./data/mpid_to_task_id_map_test.json \
+    --mp_api_key <MP API key> \
+    --oss_bucket <bucket name> \
+    --oss_endpoint oss-cn-hangzhou.aliyuncs.com \
+    --oss_folder mp_raw_test/ \
+    --limit 5 \
+    --workers 1
+```
 
 Files are stored in the OSS bucket with a flat layout:
 
@@ -196,7 +257,12 @@ oss://<bucket>/mp-100/CHGCAR
 ...
 ```
 
-Use `--oss_prefix <prefix>/` to add an optional path prefix inside the bucket (e.g. `--oss_prefix mp_raw/`).
+When a folder/prefix is set (for example `--oss_folder mp_raw/`), keys look like:
+
+```
+oss://<bucket>/mp_raw/mp-10/CHGCAR
+oss://<bucket>/mp_raw/mp-10/task_id.txt
+```
 
 Install the Aliyun OSS SDK before running:
 

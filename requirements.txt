@@ -10,3 +10,8 @@ scipy
 lz4
 boto3
 oss2
+mp-api==0.45.13
+emmet-core==0.85.1
+pymatgen
+monty
+pydantic>=2.12,<3
