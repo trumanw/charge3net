@@ -9,3 +9,4 @@ pandas
 scipy
 lz4
 boto3
+oss2

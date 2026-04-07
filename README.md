@@ -132,7 +132,9 @@ python src/train_from_config.py -cd configs/charge3net -cn train_nmc_e3_final.ya
 
 ### Materials Project
 
-1. Use our python script to download the  MP Charge Density Data (using the [Materials Project API](https://github.com/materialsproject/api)):
+#### Option A: Download to local disk
+
+1. Use our python script to download the MP Charge Density Data (using the [Materials Project API](https://github.com/materialsproject/api)):
 
 ```bash
 python download/download_materials_project.py \
@@ -153,6 +155,53 @@ python download/download_materials_project.py \
 	--out_path ./data/mp_raw \
 	--workers WORKERS \
 	--mp_api_key <MP API key>
+```
+
+#### Option B: Download directly to Aliyun OSS (for ECS servers with limited local disk)
+
+If your local disk is too small to hold the full dataset, you can download directly to an [Aliyun OSS](https://www.aliyun.com/product/oss) bucket from an ECS server. No CHGCAR data is kept on the local disk — each file is written to a temporary file, uploaded, then deleted.
+
+**Step 1.** If you have partially downloaded data locally, generate a skip list first:
+
+```bash
+python download/scan_local_downloads.py \
+    --mp_raw_dir ./data/mp_raw \
+    --out_file ./data/downloaded_mpids.txt
+```
+
+This scans `./data/mp_raw/` and saves every mpid that already has a `CHGCAR` to `downloaded_mpids.txt` (one per line). Pass this file to the next step so already-done entries are skipped.
+
+**Step 2.** Run the Aliyun download script on your ECS server:
+
+```bash
+python download/download_materials_project_aliyun.py \
+    --task_id_file ./data/mpid_to_task_id_map.json \
+    --mp_api_key <MP API key> \
+    --oss_bucket <bucket name> \
+    --oss_endpoint oss-cn-hangzhou.aliyuncs.com \
+    --oss_access_key_id <key id> \
+    --oss_access_key_secret <key secret> \
+    --downloaded_list ./data/downloaded_mpids.txt \
+    --workers 4
+```
+
+OSS credentials can also be supplied via environment variables `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET` instead of CLI flags.
+
+Files are stored in the OSS bucket with a flat layout:
+
+```
+oss://<bucket>/mp-10/CHGCAR
+oss://<bucket>/mp-10/task_id.txt
+oss://<bucket>/mp-100/CHGCAR
+...
+```
+
+Use `--oss_prefix <prefix>/` to add an optional path prefix inside the bucket (e.g. `--oss_prefix mp_raw/`).
+
+Install the Aliyun OSS SDK before running:
+
+```bash
+pip install oss2
 ```
 
 2. Convert the CHGCAR files to numpy and pickle files for faster reading with [scripts/batch_pickle_mp_charge_density.py](./scripts/batch_pickle_mp_charge_density.py)
