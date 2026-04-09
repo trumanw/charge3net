@@ -59,8 +59,8 @@ parser.add_argument("--workers", type=int, default=1,
 
 # --- Skip list ---
 parser.add_argument("--downloaded_list", type=str, default=None,
-    help="Path to a .txt file listing mpids to skip (one per line). "
-         "Generate with scan_local_downloads.py.")
+    help="Path to a file listing mpids to skip. Supports .txt (one mpid per line) "
+         "or .json (object with mpids as keys). Generate with scan_local_downloads.py.")
 
 # --- Aliyun OSS args ---
 parser.add_argument("--oss_bucket", type=str, required=True,
@@ -266,16 +266,35 @@ def _fetch_and_upload_by_task(
 # ---------------------------------------------------------------------------
 
 def load_skip_set(downloaded_list: Optional[str]) -> Set[str]:
-    """Load a set of mpids to skip from a plain-text file."""
+    """Load a set of mpids to skip from a plain-text file or JSON file.
+
+    Supports:
+    - Plain text: one mpid per line
+    - JSON: object with mpids as keys (e.g., {"mp-123": "task-456", ...})
+    """
     if not downloaded_list:
         return set()
     skip_path = Path(downloaded_list)
     if not skip_path.exists():
         print(f"Warning: --downloaded_list file not found: {skip_path}. Continuing without skip list.")
         return set()
-    with open(skip_path) as f:
-        skip = {line.strip() for line in f if line.strip()}
-    print(f"Loaded {len(skip)} mpid(s) to skip from {skip_path}.")
+
+    # Detect file format by extension
+    if skip_path.suffix.lower() == ".json":
+        with open(skip_path) as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            skip = set(data.keys())
+        elif isinstance(data, list):
+            skip = set(str(item) for item in data)
+        else:
+            skip = set()
+        print(f"Loaded {len(skip)} mpid(s) to skip from JSON file {skip_path}.")
+    else:
+        with open(skip_path) as f:
+            skip = {line.strip() for line in f if line.strip()}
+        print(f"Loaded {len(skip)} mpid(s) to skip from {skip_path}.")
+
     return skip
 
 
